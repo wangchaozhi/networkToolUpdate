@@ -21,7 +21,7 @@ class Program
         Parser.Default.ParseArguments<Options>(args)
             .WithParsed<Options>(opts =>
             {
-                Console.WriteLine($"Downloading update from: {opts.Url}");
+                // Console.WriteLine($"Downloading update from: {opts.Url}");
                 Console.WriteLine("Checking for updates...");
 
                 // 假设这里有代码来检查更新，决定是否需要下载更新文件
@@ -66,6 +66,8 @@ class Program
             Console.WriteLine("Found running instance of MyApp. Attempting to close it...");
             if (!process.CloseMainWindow()) // 尝试正常关闭
             {
+                var processHasExited = process.HasExited;
+    
                 process.Kill(); // 正常关闭失败，尝试强制结束
                 process.WaitForExit(); // 等待进程退出
             }
@@ -82,7 +84,8 @@ class Program
 
     private static void ApplyUpdate(string filename)
     {
-        string targetDirectory = AppDomain.CurrentDomain.BaseDirectory;
+        string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        string targetDirectory = Path.Combine(appDataPath, "MyApp");
         string subDirectoryToExtract = "publish";
 
         using (ZipArchive archive = ZipFile.OpenRead(filename))
