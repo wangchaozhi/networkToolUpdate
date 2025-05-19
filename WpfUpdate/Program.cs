@@ -22,11 +22,7 @@ class Program
         Parser.Default.ParseArguments<Options>(args)
             .WithParsed<Options>(opts =>
             {
-                // string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                // string targetDirectory = Path.Combine(appDataPath, "MyApp"); // 定义一次，使用多次
-
                 var targetDirectory = GetApplicationDirectoryFromRegistry();
-                // Console.WriteLine($"Downloading update from: {opts.Url}");
                 Console.WriteLine("Checking for updates...");
 
                 // 假设这里有代码来检查更新，决定是否需要下载更新文件
@@ -34,18 +30,6 @@ class Program
                 {
                     Console.WriteLine("Checking if MyApp is running...");
                     EnsureApplicationIsNotRunning("WpfApp2"); // 确保 MyApp 不在运行
-
-                    Console.WriteLine("Downloading update...");
-                    // string zipFilename = opts.Filename;
-                    // // DownloadUpdate("http://192.168.3.81:9000/sunshinefarm-images/2023/publish%285%29.zip", zipFilename);
-                    // DownloadUpdate(opts.Url, zipFilename);
-                    // Console.WriteLine("Applying update...");
-                    // ApplyUpdate(zipFilename);
-                    // Console.WriteLine("Cleaning up...");
-                    // Cleanup(zipFilename); // 删除zip文件和解压出来的文件夹
-                    // RestartApplication();
-                    
-                    
                     Console.WriteLine("Downloading update...");
                     DownloadUpdate(opts.Url, opts.Filename, targetDirectory);
                     Console.WriteLine("Applying update...");
@@ -104,38 +88,6 @@ class Program
             client.DownloadFile(url, fullPath);
         }
     }
-
-    private static void ApplyUpdate(string filename)
-    {
-        string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        string targetDirectory = Path.Combine(appDataPath, "MyApp");
-        string subDirectoryToExtract = "publish";
-
-        using (ZipArchive archive = ZipFile.OpenRead(filename))
-        {
-            foreach (ZipArchiveEntry entry in archive.Entries)
-            {
-                if (entry.FullName.StartsWith(subDirectoryToExtract + "/", StringComparison.OrdinalIgnoreCase))
-                {
-                    string destinationPath = Path.GetFullPath(Path.Combine(targetDirectory,
-                        entry.FullName.Substring(subDirectoryToExtract.Length + 1)));
-
-                    if (destinationPath.StartsWith(targetDirectory, StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (!Directory.Exists(Path.GetDirectoryName(destinationPath)))
-                        {
-                            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath));
-                        }
-
-                        if (!string.IsNullOrEmpty(entry.Name))
-                        {
-                            entry.ExtractToFile(destinationPath, overwrite: true);
-                        }
-                    }
-                }
-            }
-        }
-    }
     private static void ApplyUpdate(string filename, string targetDirectory)
     {
         string subDirectoryToExtract = "publish";
@@ -156,16 +108,6 @@ class Program
             }
         }
     }
-
-    private static void Cleanup(string zipFilename)
-    {
-        File.Delete(zipFilename);
-        string directoryToDelete = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "publish");
-        if (Directory.Exists(directoryToDelete))
-        {
-            Directory.Delete(directoryToDelete, recursive: true);
-        }
-    }
     
     private static void Cleanup(string zipFilename, string targetDirectory)
     {
@@ -181,17 +123,7 @@ class Program
         }
     }
 
-    // private static void RestartApplication(string targetDirectory)
-    // {
-    //     ProcessStartInfo startInfo = new ProcessStartInfo
-    //     {
-    //         FileName = targetDirectory+"WpfApp2.exe",
-    //         UseShellExecute = true
-    //     };
-    //     Process.Start(startInfo);
-    //     Environment.Exit(0);
-    // }
-    
+  
     private static void RestartApplication(string targetDirectory)
     {
         string executablePath = Path.Combine(targetDirectory, "WpfApp2.exe");
