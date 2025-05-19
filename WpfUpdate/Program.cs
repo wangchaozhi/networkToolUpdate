@@ -2,6 +2,7 @@
 using System.IO.Compression;
 using System.Net;
 using CommandLine;
+using Microsoft.Win32;
 
 namespace WpfUpdate;
 
@@ -21,6 +22,10 @@ class Program
         Parser.Default.ParseArguments<Options>(args)
             .WithParsed<Options>(opts =>
             {
+                // string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                // string targetDirectory = Path.Combine(appDataPath, "MyApp"); // 定义一次，使用多次
+
+                var targetDirectory = GetApplicationDirectoryFromRegistry();
                 // Console.WriteLine($"Downloading update from: {opts.Url}");
                 Console.WriteLine("Checking for updates...");
 
@@ -31,14 +36,23 @@ class Program
                     EnsureApplicationIsNotRunning("WpfApp2"); // 确保 MyApp 不在运行
 
                     Console.WriteLine("Downloading update...");
-                    string zipFilename = opts.Filename;
-                    // DownloadUpdate("http://192.168.3.81:9000/sunshinefarm-images/2023/publish%285%29.zip", zipFilename);
-                    DownloadUpdate(opts.Url, zipFilename);
+                    // string zipFilename = opts.Filename;
+                    // // DownloadUpdate("http://192.168.3.81:9000/sunshinefarm-images/2023/publish%285%29.zip", zipFilename);
+                    // DownloadUpdate(opts.Url, zipFilename);
+                    // Console.WriteLine("Applying update...");
+                    // ApplyUpdate(zipFilename);
+                    // Console.WriteLine("Cleaning up...");
+                    // Cleanup(zipFilename); // 删除zip文件和解压出来的文件夹
+                    // RestartApplication();
+                    
+                    
+                    Console.WriteLine("Downloading update...");
+                    DownloadUpdate(opts.Url, opts.Filename, targetDirectory);
                     Console.WriteLine("Applying update...");
-                    ApplyUpdate(zipFilename);
+                    ApplyUpdate(opts.Filename, targetDirectory);
                     Console.WriteLine("Cleaning up...");
-                    Cleanup(zipFilename); // 删除zip文件和解压出来的文件夹
-                    RestartApplication();
+                    Cleanup(opts.Filename, targetDirectory);
+                    RestartApplication(targetDirectory);
                 }
 
                 Console.WriteLine("Update process completed.");
@@ -81,6 +95,15 @@ class Program
             client.DownloadFile(url, filename);
         }
     }
+    private static void DownloadUpdate(string url, string filename, string targetDirectory)
+    {
+        string fullPath = Path.Combine(targetDirectory, filename);
+        using (var client = new WebClient())
+        {
+            Directory.CreateDirectory(targetDirectory);
+            client.DownloadFile(url, fullPath);
+        }
+    }
 
     private static void ApplyUpdate(string filename)
     {
@@ -113,6 +136,26 @@ class Program
             }
         }
     }
+    private static void ApplyUpdate(string filename, string targetDirectory)
+    {
+        string subDirectoryToExtract = "publish";
+        string fullPath = Path.Combine(targetDirectory, filename);
+        using (ZipArchive archive = ZipFile.OpenRead(fullPath))
+        {
+            foreach (ZipArchiveEntry entry in archive.Entries)
+            {
+                string destinationPath = Path.Combine(targetDirectory, entry.FullName.Substring(subDirectoryToExtract.Length + 1));
+                if (!Directory.Exists(Path.GetDirectoryName(destinationPath)))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(destinationPath));
+                }
+                if (!string.IsNullOrEmpty(entry.Name))
+                {
+                    entry.ExtractToFile(destinationPath, overwrite: true);
+                }
+            }
+        }
+    }
 
     private static void Cleanup(string zipFilename)
     {
@@ -123,15 +166,59 @@ class Program
             Directory.Delete(directoryToDelete, recursive: true);
         }
     }
-
-    private static void RestartApplication()
+    
+    private static void Cleanup(string zipFilename, string targetDirectory)
     {
+        string fullPath = Path.Combine(targetDirectory, zipFilename);
+        if (File.Exists(fullPath))
+        {
+            File.Delete(fullPath);
+        }
+        string directoryToDelete = Path.Combine(targetDirectory, "publish");
+        if (Directory.Exists(directoryToDelete))
+        {
+            Directory.Delete(directoryToDelete, recursive: true);
+        }
+    }
+
+    // private static void RestartApplication(string targetDirectory)
+    // {
+    //     ProcessStartInfo startInfo = new ProcessStartInfo
+    //     {
+    //         FileName = targetDirectory+"WpfApp2.exe",
+    //         UseShellExecute = true
+    //     };
+    //     Process.Start(startInfo);
+    //     Environment.Exit(0);
+    // }
+    
+    private static void RestartApplication(string targetDirectory)
+    {
+        string executablePath = Path.Combine(targetDirectory, "WpfApp2.exe");
         ProcessStartInfo startInfo = new ProcessStartInfo
         {
-            FileName = "WpfApp2.exe",
+            FileName = executablePath,
             UseShellExecute = true
         };
         Process.Start(startInfo);
         Environment.Exit(0);
     }
+
+    
+    
+    private static string GetApplicationDirectoryFromRegistry()
+    {
+        const string keyPath = @"SOFTWARE\MyCompany\MyApp";
+        using (var key = Registry.CurrentUser.OpenSubKey(keyPath))
+        {
+            if (key != null)
+            {
+                object directoryPath = key.GetValue("InstallationDirectory");
+                if (directoryPath != null)
+                    return directoryPath.ToString();
+            }
+        }
+        return null; // 或者返回一个默认路径
+    }
+
 }
